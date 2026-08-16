@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QC Trace Extractor</title>
+<style>
+  :root{
+    --paper:#F6F5F1;
+    --ink:#132226;
+    --ink-soft:#4B5B5E;
+    --line:#D7D9D2;
+    --teal:#1F6F63;
+    --teal-dark:#154F46;
+    --amber:#C97A2B;
+    --card:#FFFFFF;
+    --mono: 'IBM Plex Mono', 'SFMono-Regular', Consolas, monospace;
+    --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(circle at 1px 1px, rgba(19,34,38,0.06) 1px, transparent 0) 0 0/22px 22px,
+      var(--paper);
+    color:var(--ink);
+    font-family:var(--sans);
+    min-height:100vh;
+    padding:32px 20px 80px;
+  }
+  .wrap{max-width:980px;margin:0 auto;}
+
+  header{
+    display:flex;
+    align-items:flex-end;
+    justify-content:space-between;
+    gap:16px;
+    border-bottom:2px solid var(--ink);
+    padding-bottom:14px;
+    margin-bottom:26px;
+    flex-wrap:wrap;
+  }
+  .brand-tag{
+    font-family:var(--mono);
+    font-size:11px;
+    letter-spacing:.12em;
+    text-transform:uppercase;
+    color:var(--teal-dark);
+    background:#E7EFE9;
+    border:1px solid #BFD6C9;
+    padding:3px 8px;
+    border-radius:3px;
+    display:inline-block;
+    margin-bottom:8px;
+  }
+  h1{
+    font-family:var(--sans);
+    font-weight:700;
+    font-size:26px;
+    margin:0;
+    letter-spacing:-0.01em;
+  }
+  header p{
+    margin:4px 0 0;
+    color:var(--ink-soft);
+    font-size:13.5px;
+    max-width:46ch;
+  }
+  .count-chip{
+    font-family:var(--mono);
+    font-size:12px;
+    color:var(--ink-soft);
+    text-align:right;
+    white-space:nowrap;
+  }
+  .count-chip strong{
+    display:block;
+    font-size:26px;
+    color:var(--ink);
+    font-family:var(--mono);
+    line-height:1;
+  }
+
+  .card{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:20px;
+    margin-bottom:22px;
+    box-shadow:0 1px 2px rgba(19,34,38,0.04);
+  }
+  .card h2{
+    font-size:12px;
+    text-transform:uppercase;
+    letter-spacing:.1em;
+    color:var(--ink-soft);
+    margin:0 0 12px;
+    font-weight:600;
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .card h2 .num{
+    background:var(--ink);
+    color:var(--paper);
+    font-family:var(--mono);
+    width:18px;height:18px;
+    border-radius:3px;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    font-size:10px;
+  }
+
+  textarea{
+    width:100%;
+    min-height:180px;
+    resize:vertical;
+    border:1px solid var(--line);
+    border-radius:6px;
+    padding:12px 14px;
+    font-family:var(--mono);
+    font-size:12.5px;
+    line-height:1.55;
+    color:var(--ink);
+    background:#FCFCFA;
+    outline:none;
+  }
+  textarea:focus{border-color:var(--teal);box-shadow:0 0 0 3px rgba(31,111,99,0.12);}
+  textarea::placeholder{color:#9AA6A3;}
+
+  .row{display:flex;gap:10px;align-items:center;margin-top:14px;flex-wrap:wrap;}
+  button{
+    font-family:var(--sans);
+    font-size:13.5px;
+    font-weight:600;
+    border-radius:6px;
+    padding:10px 16px;
+    border:1px solid transparent;
+    cursor:pointer;
+    transition:transform .05s ease, background .15s ease, border-color .15s ease;
+  }
+  button:active{transform:translateY(1px);}
+  .btn-primary{background:var(--teal);color:#fff;}
+  .btn-primary:hover{background:var(--teal-dark);}
+  .btn-ghost{background:transparent;color:var(--ink-soft);border-color:var(--line);}
+  .btn-ghost:hover{border-color:var(--ink-soft);color:var(--ink);}
+  .status-msg{font-family:var(--mono);font-size:12px;color:var(--teal-dark);min-height:16px;}
+  .status-msg.warn{color:var(--amber);}
+
+  table{
+    width:100%;
+    border-collapse:collapse;
+    font-size:13px;
+    font-family:var(--sans);
+  }
+  thead th{
+    background:var(--ink);
+    color:#fff;
+    text-align:left;
+    padding:9px 10px;
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:.06em;
+    font-weight:600;
+  }
+  tbody td{
+    padding:9px 10px;
+    border-bottom:1px solid var(--line);
+    vertical-align:top;
+  }
+  tbody tr:nth-child(even){background:#FBFAF7;}
+  tbody tr.flagged{background:#FBF1E3 !important;}
+  tbody tr.flagged td:first-child{box-shadow:inset 3px 0 0 var(--amber);}
+  tbody td:first-child, thead th:first-child{font-family:var(--mono);white-space:nowrap;color:var(--teal-dark);}
+  .table-scroll{overflow-x:auto;border:1px solid var(--line);border-radius:6px;}
+  .missing{color:#B8543A;font-style:italic;}
+  tr.source-row td{
+    background:#F2F1EC;
+    font-family:var(--mono);
+    font-size:11px;
+    color:var(--ink-soft);
+    padding:8px 10px;
+    border-bottom:1px solid var(--line);
+    white-space:pre-wrap;
+    word-break:break-word;
+  }
+  .toggle-row{display:flex;align-items:center;gap:8px;margin-bottom:10px;font-size:12.5px;color:var(--ink-soft);}
+  .toggle-row input{accent-color:var(--teal);}
+  .integrity-note{font-family:var(--mono);font-size:12px;margin-bottom:10px;padding:8px 10px;border-radius:5px;border:1px solid var(--line);background:#FCFCFA;}
+  .integrity-note.ok{color:var(--teal-dark);border-color:#BFD6C9;background:#F1F7F4;}
+  .integrity-note.warn{color:#8A4A17;border-color:#E7C89A;background:#FBF1E3;}
+  .empty-state{
+    color:var(--ink-soft);
+    font-size:13px;
+    padding:26px 10px;
+    text-align:center;
+    font-family:var(--mono);
+  }
+  footer{
+    text-align:center;
+    color:#9AA6A3;
+    font-size:11.5px;
+    font-family:var(--mono);
+    margin-top:30px;
+  }
+  @media (prefers-reduced-motion: reduce){*{transition:none !important;}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div>
+      <span class="brand-tag">QC · Traceability</span>
+      <h1>QC Trace Extractor</h1>
+      <p>Paste raw scan-log text below. It pulls out QC Trace, Material, Received Quantity, Supplier and Vendor Lot, then gives you an Outlook-ready table.</p>
+    </div>
+    <div class="count-chip">Rows parsed<strong id="rowCount">0</strong></div>
+  </header>
+
+  <div class="card">
+    <h2><span class="num">1</span>Paste source data</h2>
+    <textarea id="input" placeholder="Paste the raw QC trace text here, e.g.:
+QR2605000HT7 Q CMLIQ0000014 - Ethanol PS-663 200 2 Units 110.0 (GAL) Pride Solvents & Chemicals 202605140033 BP20260518001 JOHANA MELGAR 2026/05/18 10:56:51 NJ109642-1SA Clear colorless liquid"></textarea>
+    <div class="row">
+      <button class="btn-primary" id="parseBtn">Extract table</button>
+      <button class="btn-ghost" id="clearBtn">Clear</button>
+      <span class="status-msg" id="parseStatus"></span>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span class="num">2</span>Result — verify, then copy into Outlook</h2>
+    <div id="integrityNote"></div>
+    <label class="toggle-row">
+      <input type="checkbox" id="showSourceToggle">
+      Show original source line under each row (for manual verification — not included when you copy)
+    </label>
+    <div class="table-scroll" id="tableHolder">
+      <div class="empty-state">No rows yet — paste data above and click "Extract table".</div>
+    </div>
+    <div class="row">
+      <button class="btn-primary" id="copyBtn" disabled>Copy table for Outlook</button>
+      <span class="status-msg" id="copyStatus"></span>
+    </div>
+  </div>
+
+  <footer>Runs entirely in your browser — nothing is uploaded or stored.</footer>
+</div>
+
+<script>
+const COLS = ["QC Trace","Material","Received Quantity","Supplier","Vendor Lot"];
+
+function parseRecords(raw){
+  const text = raw.replace(/\r\n/g,'\n').replace(/\n/g,' ').replace(/\s+/g,' ').trim();
+  if(!text) return { records: [], traceCount: 0 };
+
+  // find every QC Trace token start (QR followed by alphanumerics)
+  const starts = [];
+  const traceRe = /\bQR[A-Z0-9]{6,}\b/g;
+  let m;
+  while((m = traceRe.exec(text)) !== null){
+    starts.push(m.index);
+  }
+  if(starts.length === 0) return { records: [], traceCount: 0 };
+
+  const chunks = starts.map((s,i) => text.slice(s, i+1 < starts.length ? starts[i+1] : text.length).trim());
+
+  const records = [];
+  for(const chunk of chunks){
+    const rec = { qcTrace:'', material:'', receivedQty:'', supplier:'', vendorLot:'', raw: chunk };
+
+    let rest = chunk;
+
+    // QC Trace
+    let mm = rest.match(/^(\S+)\s*/);
+    if(!mm) continue;
+    rec.qcTrace = mm[1];
+    rest = rest.slice(mm[0].length);
+
+    // Status letter (Q/A) if present
+    mm = rest.match(/^([QA])\s+/);
+    if(mm) rest = rest.slice(mm[0].length);
+
+    // AR Number anchor (BP + 11 digits)
+    const arMatch = rest.match(/\bBP\d{11}\b/);
+    let beforeAR = rest, afterAR = '';
+    if(arMatch){
+      beforeAR = rest.slice(0, arMatch.index).trim();
+      afterAR = rest.slice(arMatch.index + arMatch[0].length).trim();
+    }
+
+    // Received Quantity pattern e.g. "2 Units 110.0 (GAL)"
+    const qtyRe = /(\d[\d,]*\s+Units?\s+[\d,]+(?:\.\d+)?\s*\([A-Za-z]+\))/;
+    const qtyMatch = beforeAR.match(qtyRe);
+    let supplierPart = beforeAR;
+    if(qtyMatch){
+      rec.material = beforeAR.slice(0, qtyMatch.index).trim().replace(/[-,]\s*$/,'').trim();
+      rec.receivedQty = qtyMatch[1].replace(/\s+/g,' ').trim();
+      supplierPart = beforeAR.slice(qtyMatch.index + qtyMatch[1].length).trim();
+    } else {
+      rec.material = beforeAR.trim();
+    }
+
+    // strip trailing 12-digit Order Number from supplier segment
+    supplierPart = supplierPart.replace(/\s+\d{12}\s*$/,'').trim();
+    rec.supplier = supplierPart;
+
+    // Vendor Lot: first token after the Scan Date timestamp
+    const dateMatch = afterAR.match(/\d{4}\/\d{2}\/\d{2}\s+\d{2}:\d{2}:\d{2}/);
+    if(dateMatch){
+      const afterDate = afterAR.slice(dateMatch.index + dateMatch[0].length).trim();
+      const lotMatch = afterDate.match(/^(\S+)/);
+      if(lotMatch) rec.vendorLot = lotMatch[1];
+    }
+
+    // only keep records that at least resolved a QC Trace + something else
+    if(rec.qcTrace) records.push(rec);
+  }
+  return { records, traceCount: starts.length };
+}
+
+function fieldOrFlag(v){
+  return v ? escapeHtml(v) : '<span class="missing">— check source —</span>';
+}
+
+function renderTable(records, showSource){
+  const holder = document.getElementById('tableHolder');
+  if(records.length === 0){
+    holder.innerHTML = '<div class="empty-state">No recognizable QC trace rows found. Check the pasted text and try again.</div>';
+    return;
+  }
+  let html = '<table id="resultTable"><thead><tr>' +
+    COLS.map(c => `<th>${c}</th>`).join('') + '</tr></thead><tbody>';
+  for(const r of records){
+    const incomplete = !r.material || !r.receivedQty || !r.supplier || !r.vendorLot;
+    html += `<tr class="${incomplete ? 'flagged' : ''}">` +
+      `<td>${escapeHtml(r.qcTrace)}</td>` +
+      `<td>${fieldOrFlag(r.material)}</td>` +
+      `<td>${fieldOrFlag(r.receivedQty)}</td>` +
+      `<td>${fieldOrFlag(r.supplier)}</td>` +
+      `<td>${fieldOrFlag(r.vendorLot)}</td>` +
+      '</tr>';
+    if(showSource){
+      html += `<tr class="source-row"><td colspan="5">source: ${escapeHtml(r.raw)}</td></tr>`;
+    }
+  }
+  html += '</tbody></table>';
+  holder.innerHTML = html;
+}
+
+function escapeHtml(s){
+  return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+let lastRecords = [];
+
+function updateIntegrityNote(traceCount, parsedCount, flaggedCount){
+  const note = document.getElementById('integrityNote');
+  if(parsedCount === 0){ note.innerHTML = ''; return; }
+  if(traceCount === parsedCount && flaggedCount === 0){
+    note.innerHTML = `<div class="integrity-note ok">✓ Found ${traceCount} QC Trace ID${traceCount>1?'s':''} in your paste — all ${parsedCount} were extracted with every field filled in.</div>`;
+  } else {
+    const bits = [];
+    if(traceCount !== parsedCount) bits.push(`${traceCount} trace IDs found but only ${parsedCount} rows built`);
+    if(flaggedCount > 0) bits.push(`${flaggedCount} row${flaggedCount>1?'s':''} missing a field (highlighted below)`);
+    note.innerHTML = `<div class="integrity-note warn">⚠ ${bits.join(' · ')} — turn on "Show original source line" to double-check those rows against your paste.</div>`;
+  }
+}
+
+function doRender(){
+  const showSource = document.getElementById('showSourceToggle').checked;
+  renderTable(lastRecords, showSource);
+}
+
+document.getElementById('parseBtn').addEventListener('click', () => {
+  const raw = document.getElementById('input').value;
+  const { records, traceCount } = parseRecords(raw);
+  lastRecords = records;
+  doRender();
+  document.getElementById('rowCount').textContent = lastRecords.length;
+  const status = document.getElementById('parseStatus');
+  const copyBtn = document.getElementById('copyBtn');
+  const flaggedCount = lastRecords.filter(r => !r.material || !r.receivedQty || !r.supplier || !r.vendorLot).length;
+  updateIntegrityNote(traceCount, lastRecords.length, flaggedCount);
+  if(lastRecords.length){
+    status.textContent = `Extracted ${lastRecords.length} row${lastRecords.length>1?'s':''}.`;
+    status.classList.remove('warn');
+    copyBtn.disabled = false;
+  } else {
+    status.textContent = 'No rows detected — check the pasted format.';
+    status.classList.add('warn');
+    copyBtn.disabled = true;
+  }
+  document.getElementById('copyStatus').textContent = '';
+});
+
+document.getElementById('showSourceToggle').addEventListener('change', doRender);
+
+document.getElementById('clearBtn').addEventListener('click', () => {
+  document.getElementById('input').value = '';
+  lastRecords = [];
+  document.getElementById('rowCount').textContent = '0';
+  document.getElementById('parseStatus').textContent = '';
+  document.getElementById('copyStatus').textContent = '';
+  document.getElementById('integrityNote').innerHTML = '';
+  document.getElementById('copyBtn').disabled = true;
+  document.getElementById('tableHolder').innerHTML = '<div class="empty-state">No rows yet — paste data above and click "Extract table".</div>';
+});
+
+document.getElementById('copyBtn').addEventListener('click', async () => {
+  const table = document.getElementById('resultTable');
+  const copyStatus = document.getElementById('copyStatus');
+  if(!table){ return; }
+
+  // build a clean standalone HTML table (with borders) for the clipboard
+  const styledHtml = `<table border="1" cellspacing="0" cellpadding="6" style="border-collapse:collapse;font-family:Calibri,Arial,sans-serif;font-size:13px;">` +
+    `<thead><tr>${COLS.map(c=>`<th style="background:#12232E;color:#fff;text-align:left;padding:6px 10px;">${c}</th>`).join('')}</tr></thead>` +
+    `<tbody>` + lastRecords.map(r => `<tr>` +
+      `<td style="padding:6px 10px;border:1px solid #ccc;">${escapeHtml(r.qcTrace)}</td>` +
+      `<td style="padding:6px 10px;border:1px solid #ccc;">${escapeHtml(r.material)}</td>` +
+      `<td style="padding:6px 10px;border:1px solid #ccc;">${escapeHtml(r.receivedQty)}</td>` +
+      `<td style="padding:6px 10px;border:1px solid #ccc;">${escapeHtml(r.supplier)}</td>` +
+      `<td style="padding:6px 10px;border:1px solid #ccc;">${escapeHtml(r.vendorLot)}</td>` +
+    `</tr>`).join('') + `</tbody></table>`;
+
+  const plainText = [COLS.join('\t')].concat(
+    lastRecords.map(r => [r.qcTrace, r.material, r.receivedQty, r.supplier, r.vendorLot].join('\t'))
+  ).join('\n');
+
+  try{
+    if(window.ClipboardItem){
+      const item = new ClipboardItem({
+        'text/html': new Blob([styledHtml], {type:'text/html'}),
+        'text/plain': new Blob([plainText], {type:'text/plain'})
+      });
+      await navigator.clipboard.write([item]);
+      copyStatus.textContent = 'Copied — paste directly into your Outlook email.';
+      copyStatus.classList.remove('warn');
+    } else {
+      // fallback: select the visible table and use execCommand
+      const range = document.createRange();
+      range.selectNode(table);
+      window.getSelection().removeAllRanges();
+      window.getSelection().addRange(range);
+      document.execCommand('copy');
+      window.getSelection().removeAllRanges();
+      copyStatus.textContent = 'Copied table — paste into Outlook.';
+      copyStatus.classList.remove('warn');
+    }
+  }catch(err){
+    copyStatus.textContent = 'Copy failed — select the table manually and press Ctrl/Cmd+C.';
+    copyStatus.classList.add('warn');
+  }
+});
+
+// auto-run once with the sample already in the textarea if user pastes on load — no-op otherwise
+</script>
+</body>
+</html>
